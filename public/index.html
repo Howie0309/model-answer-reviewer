@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>模型回答评测器</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topband">
+        <div class="intro">
+          <p class="eyebrow">Model A/B Review</p>
+          <h1>模型回答评测器</h1>
+          <p class="lead">
+            输入原始 query，粘贴 A 模型和 B 模型的回答，判断哪个回答更准确、更完整、更值得采用。
+          </p>
+        </div>
+
+        <aside class="legend-panel" aria-label="评测标准">
+          <p class="legend-title">最终评级</p>
+          <div class="legend-grid">
+            <span class="legend-pill strong">很好</span>
+            <span class="legend-pill positive">略好</span>
+            <span class="legend-pill neutral">持平</span>
+            <span class="legend-pill caution">略差</span>
+            <span class="legend-pill weak">很差</span>
+          </div>
+          <p class="legend-note">
+            评级表示 A 相对 B 的整体质量，不默认更长的回答更好。
+          </p>
+        </aside>
+      </section>
+
+      <form id="compare-form" class="task-panel">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Step 1</p>
+            <h2>输入待评测内容</h2>
+          </div>
+          <span id="config-status" class="status">正在检查模型配置</span>
+        </div>
+
+        <div class="field-block">
+          <div class="field-head">
+            <label for="query">原始 query</label>
+            <span class="field-note">评测时会先检查回答是否真正回应了这个问题。</span>
+          </div>
+          <textarea
+            id="query"
+            name="query"
+            rows="5"
+            placeholder="例如：请分析这个产品是否值得继续做：让两个大模型互相讨论，最后输出一个最终结论。"
+          ></textarea>
+        </div>
+
+        <div class="answer-grid">
+          <section class="answer-panel">
+            <div class="field-head">
+              <label for="answer-a">A 模型回答</label>
+              <span class="answer-tag">候选 A</span>
+            </div>
+            <textarea id="answer-a" rows="14" placeholder="粘贴 A 模型的完整回答。"></textarea>
+          </section>
+
+          <section class="answer-panel">
+            <div class="field-head">
+              <label for="answer-b">B 模型回答</label>
+              <span class="answer-tag alt">候选 B</span>
+            </div>
+            <textarea id="answer-b" rows="14" placeholder="粘贴 B 模型的完整回答。"></textarea>
+          </section>
+        </div>
+
+        <div class="action-bar">
+          <div class="button-row">
+            <button id="compare-button" type="submit">自动评测</button>
+            <button id="prompt-button" class="secondary" type="button">
+              生成评审 Prompt
+            </button>
+          </div>
+          <p class="action-note">
+            自动评测会调用当前已配置模型；生成 Prompt 适合复制到网页端 ChatGPT 或 Gemini。
+          </p>
+        </div>
+      </form>
+
+      <section class="comparison-stage">
+        <div class="template-panel">
+          <div class="panel-heading">
+            <div>
+              <span>评审 Prompt 模板</span>
+              <p class="panel-note">支持占位符：<code>{{query}}</code>、<code>{{answerA}}</code>、<code>{{answerB}}</code></p>
+            </div>
+            <div class="button-row compact">
+              <button id="reset-template" class="secondary" type="button">恢复默认</button>
+              <button id="copy-template" class="secondary" type="button">复制模板</button>
+            </div>
+          </div>
+          <textarea
+            id="prompt-template"
+            class="template-output"
+            placeholder="在这里编辑评审 Prompt 模板。"
+          ></textarea>
+        </div>
+
+        <div class="answers-preview-panel">
+          <div class="panel-heading">
+            <div>
+              <span>A / B 回答对照</span>
+              <p class="panel-note">这里会并列显示你输入的两个回答，方便对照查看。</p>
+            </div>
+          </div>
+          <div class="preview-grid">
+            <article class="preview-card">
+              <div class="preview-head">
+                <span>A 模型</span>
+                <span id="answer-a-count" class="preview-meta">0 字</span>
+              </div>
+              <div id="answer-a-preview" class="preview-body empty">A 回答会显示在这里。</div>
+            </article>
+            <article class="preview-card">
+              <div class="preview-head">
+                <span>B 模型</span>
+                <span id="answer-b-count" class="preview-meta">0 字</span>
+              </div>
+              <div id="answer-b-preview" class="preview-body empty">B 回答会显示在这里。</div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="result-grid" aria-live="polite">
+        <div class="final-panel">
+          <div class="panel-heading">
+            <div>
+              <span>评测结果</span>
+              <p class="panel-note">这里展示最终结论、准确性核查和各维度比较。</p>
+            </div>
+            <button id="copy-final" class="secondary" type="button" disabled>
+              复制结果
+            </button>
+          </div>
+          <article id="final-output" class="markdown-output empty">
+            评测完成后，哪个回答更好会出现在这里。
+          </article>
+        </div>
+
+        <div class="rounds-panel">
+          <div class="panel-heading">
+            <div>
+              <span>评审 Prompt</span>
+              <p class="panel-note">复制后可直接发给网页端模型做人工评测。</p>
+            </div>
+            <button id="copy-prompt" class="secondary" type="button" disabled>
+              复制 Prompt
+            </button>
+          </div>
+          <textarea
+            id="judge-prompt"
+            class="prompt-output"
+            readonly
+            placeholder="点击“生成评审 Prompt”后，可以复制到 ChatGPT 或 Gemini 网页端进行评审。"
+          ></textarea>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
