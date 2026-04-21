@@ -44,13 +44,12 @@
         <div class="field-block">
           <div class="field-head">
             <label for="query">原始 query</label>
-            <span class="field-note">评测时会先检查回答是否真正回应了这个问题。</span>
           </div>
           <textarea
             id="query"
             name="query"
             rows="5"
-            placeholder="例如：请分析这个产品是否值得继续做：让两个大模型互相讨论，最后输出一个最终结论。"
+            placeholder="请直接粘贴用户Query"
           ></textarea>
         </div>
 
@@ -74,14 +73,13 @@
 
         <div class="action-bar">
           <div class="button-row">
-            <button id="compare-button" type="submit">自动评测</button>
-            <button id="prompt-button" class="secondary" type="button">
+            <button id="prompt-button" type="button">
               生成评审 Prompt
             </button>
+            <button id="compare-button" class="secondary" type="submit" disabled>
+              自动评测（暂不可用）
+            </button>
           </div>
-          <p class="action-note">
-            自动评测会调用当前已配置模型；生成 Prompt 适合复制到网页端 ChatGPT 或 Gemini。
-          </p>
         </div>
       </form>
 
@@ -92,9 +90,17 @@
               <span>评审 Prompt 模板</span>
               <p class="panel-note">支持占位符：<code>{{query}}</code>、<code>{{answerA}}</code>、<code>{{answerB}}</code></p>
             </div>
+          </div>
+          <div class="template-toolbar">
+            <div class="template-version-picker">
+              <label for="template-version">模板版本</label>
+              <select id="template-version"></select>
+            </div>
             <div class="button-row compact">
-              <button id="reset-template" class="secondary" type="button">恢复默认</button>
-              <button id="copy-template" class="secondary" type="button">复制模板</button>
+              <button id="save-template-as" class="secondary" type="button">新建</button>
+              <button id="rename-template-version" class="secondary" type="button">改名</button>
+              <button id="save-template-current" class="secondary" type="button">保存</button>
+              <button id="delete-template-version" class="secondary" type="button">删除</button>
             </div>
           </div>
           <textarea

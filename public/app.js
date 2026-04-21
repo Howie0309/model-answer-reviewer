@@ -10,8 +10,11 @@ const copyFinal = document.querySelector("#copy-final");
 const judgePrompt = document.querySelector("#judge-prompt");
 const copyPrompt = document.querySelector("#copy-prompt");
 const promptTemplateInput = document.querySelector("#prompt-template");
-const resetTemplateButton = document.querySelector("#reset-template");
-const copyTemplateButton = document.querySelector("#copy-template");
+const templateVersionSelect = document.querySelector("#template-version");
+const saveTemplateAsButton = document.querySelector("#save-template-as");
+const renameTemplateVersionButton = document.querySelector("#rename-template-version");
+const saveTemplateCurrentButton = document.querySelector("#save-template-current");
+const deleteTemplateVersionButton = document.querySelector("#delete-template-version");
 const answerAPreview = document.querySelector("#answer-a-preview");
 const answerBPreview = document.querySelector("#answer-b-preview");
 const answerACount = document.querySelector("#answer-a-count");
@@ -19,6 +22,8 @@ const answerBCount = document.querySelector("#answer-b-count");
 
 let latestFinal = "";
 const templateStorageKey = "model-review-template-v1";
+const templateVersionsStorageKey = "model-review-template-versions-v1";
+const activeTemplateVersionStorageKey = "model-review-active-template-version-v1";
 const defaultPromptTemplate = `
 你是严格但公平的模型回答评测员。请比较 A 模型回答和 B 模型回答，判断哪个更好。
 
@@ -66,6 +71,54 @@ B 模型回答：
 ## 最终评级
 只写五档之一：很好、略好、持平、略差、很差。这里评价的是 A 相对 B 的质量，并解释原因。
 `.trim();
+const defaultTemplateVersionId = "default";
+
+function loadTemplateVersions() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(templateVersionsStorageKey) || "[]");
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch {}
+  return [
+    {
+      id: defaultTemplateVersionId,
+      name: "默认模板",
+      content: defaultPromptTemplate
+    }
+  ];
+}
+
+function saveTemplateVersions(versions) {
+  localStorage.setItem(templateVersionsStorageKey, JSON.stringify(versions));
+}
+
+function getActiveVersionId() {
+  return localStorage.getItem(activeTemplateVersionStorageKey) || defaultTemplateVersionId;
+}
+
+function setActiveVersionId(id) {
+  localStorage.setItem(activeTemplateVersionStorageKey, id);
+}
+
+function renderTemplateVersionOptions() {
+  const versions = loadTemplateVersions();
+  const activeId = getActiveVersionId();
+  templateVersionSelect.innerHTML = versions
+    .map(
+      (version) =>
+        `<option value="${escapeHtml(version.id)}"${version.id === activeId ? " selected" : ""}>${escapeHtml(version.name)}</option>`
+    )
+    .join("");
+}
+
+function syncTemplateEditorFromVersion(versionId = getActiveVersionId()) {
+  const versions = loadTemplateVersions();
+  const version = versions.find((item) => item.id === versionId) || versions[0];
+  if (!version) return;
+  setActiveVersionId(version.id);
+  promptTemplateInput.value = version.content;
+  renderTemplateVersionOptions();
+  updatePrompt();
+}
 
 function setStatus(message, type = "") {
   configStatus.textContent = message;
@@ -344,23 +397,76 @@ form.addEventListener("submit", async (event) => {
 });
 
 promptTemplateInput.addEventListener("input", () => {
-  localStorage.setItem(templateStorageKey, promptTemplateInput.value);
   updatePrompt();
 });
 
-resetTemplateButton.addEventListener("click", () => {
-  promptTemplateInput.value = defaultPromptTemplate;
-  localStorage.setItem(templateStorageKey, defaultPromptTemplate);
-  updatePrompt();
-  setStatus("已恢复默认模板", "ok");
+templateVersionSelect.addEventListener("change", () => {
+  syncTemplateEditorFromVersion(templateVersionSelect.value);
+  setStatus("已切换模板版本", "ok");
 });
 
-copyTemplateButton.addEventListener("click", async () => {
-  await navigator.clipboard.writeText(getActiveTemplate());
-  copyTemplateButton.textContent = "已复制";
-  window.setTimeout(() => {
-    copyTemplateButton.textContent = "复制模板";
-  }, 1200);
+saveTemplateAsButton.addEventListener("click", () => {
+  const name = window.prompt("给这个模板版本起个名字", "");
+  if (!name || !name.trim()) return;
+  const versions = loadTemplateVersions();
+  const newVersion = {
+    id: crypto.randomUUID(),
+    name: name.trim(),
+    content: ""
+  };
+  versions.unshift(newVersion);
+  saveTemplateVersions(versions);
+  setActiveVersionId(newVersion.id);
+  renderTemplateVersionOptions();
+  syncTemplateEditorFromVersion(newVersion.id);
+  setStatus("已保存为新模板版本", "ok");
+});
+
+renameTemplateVersionButton.addEventListener("click", () => {
+  const activeId = getActiveVersionId();
+  if (activeId === defaultTemplateVersionId) {
+    setStatus("默认模板不能重命名", "warn");
+    return;
+  }
+  const versions = loadTemplateVersions();
+  const current = versions.find((item) => item.id === activeId);
+  if (!current) return;
+
+  const nextName = window.prompt("修改模板版本名称", current.name);
+  if (!nextName || !nextName.trim()) return;
+
+  const updatedVersions = versions.map((item) =>
+    item.id === activeId ? { ...item, name: nextName.trim() } : item
+  );
+  saveTemplateVersions(updatedVersions);
+  renderTemplateVersionOptions();
+  setStatus("已重命名模板版本", "ok");
+});
+
+saveTemplateCurrentButton.addEventListener("click", () => {
+  const activeId = getActiveVersionId();
+  const versions = loadTemplateVersions();
+  const index = versions.findIndex((item) => item.id === activeId);
+  if (index === -1) {
+    setStatus("当前模板版本不存在，请先另存为新版本", "warn");
+    return;
+  }
+  versions[index] = { ...versions[index], content: getActiveTemplate() };
+  saveTemplateVersions(versions);
+  setStatus("已更新当前模板版本", "ok");
+});
+
+deleteTemplateVersionButton.addEventListener("click", () => {
+  const activeId = getActiveVersionId();
+  if (activeId === defaultTemplateVersionId) {
+    setStatus("默认模板不能删除", "warn");
+    return;
+  }
+  const versions = loadTemplateVersions().filter((item) => item.id !== activeId);
+  saveTemplateVersions(versions);
+  setActiveVersionId(defaultTemplateVersionId);
+  syncTemplateEditorFromVersion(defaultTemplateVersionId);
+  setStatus("已删除模板版本", "ok");
 });
 
 copyPrompt.addEventListener("click", async () => {
@@ -382,7 +488,16 @@ copyFinal.addEventListener("click", async () => {
 });
 
 loadConfig();
-promptTemplateInput.value =
-  localStorage.getItem(templateStorageKey) || defaultPromptTemplate;
-updatePrompt();
+if (!localStorage.getItem(templateVersionsStorageKey)) {
+  saveTemplateVersions([
+    {
+      id: defaultTemplateVersionId,
+      name: "默认模板",
+      content:
+        localStorage.getItem(templateStorageKey) || defaultPromptTemplate
+    }
+  ]);
+}
+renderTemplateVersionOptions();
+syncTemplateEditorFromVersion();
 setStatus("", "");
