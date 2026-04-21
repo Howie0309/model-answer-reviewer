@@ -2,6 +2,8 @@
 
 一个最小可运行的 MVP：用户输入原始 query，再粘贴 A 模型和 B 模型的回答，系统输出评测结果，或者生成可复制到网页端模型的评审 Prompt。
 
+已线上部署：https://model-answer-reviewer.onrender.com
+
 ## 运行
 
 ```bash
