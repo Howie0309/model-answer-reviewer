@@ -120,22 +120,30 @@
             </div>
 
             <div class="api-field">
-              <label for="judge-temperature">温度 <output id="judge-temperature-value">0</output></label>
+              <div class="control-label">
+                <label for="judge-temperature">温度 <output id="judge-temperature-value">0</output></label>
+                <span class="help-tip" tabindex="0" aria-label="温度参数说明">
+                  i
+                  <span class="help-tooltip" role="tooltip">
+                    温度设为 0 时评测更稳定；部分推理模型会自动忽略温度。
+                  </span>
+                </span>
+              </div>
               <input id="judge-temperature" type="range" min="0" max="1" step="0.1" value="0" />
             </div>
 
             <div class="api-field">
-              <label for="judge-reasoning">思考强度</label>
+              <div class="control-label">
+                <label for="judge-reasoning">思考强度</label>
+                <span class="help-tip" tabindex="0" aria-label="思考强度说明">
+                  i
+                  <span id="judge-reasoning-note" class="help-tooltip" role="tooltip">
+                    跟随模型默认设置。
+                  </span>
+                </span>
+              </div>
               <select id="judge-reasoning"></select>
             </div>
-
-            <details class="api-field span-2 parameter-help">
-              <summary>参数说明</summary>
-              <div>
-                <p>温度设为 0 时评测更稳定；部分推理模型会自动忽略温度。</p>
-                <p id="judge-reasoning-note">跟随模型默认设置。</p>
-              </div>
-            </details>
           </div>
         </section>
 
