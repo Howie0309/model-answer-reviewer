@@ -10,3 +10,7 @@ services:
         value: 0.0.0.0
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
+      - key: XIAOMI_MODEL
+        value: mimo-v2-flash
+      - key: XIAOMI_BASE_URL
+        value: https://api.xiaomimimo.com/v1

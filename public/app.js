@@ -19,11 +19,64 @@ const answerAPreview = document.querySelector("#answer-a-preview");
 const answerBPreview = document.querySelector("#answer-b-preview");
 const answerACount = document.querySelector("#answer-a-count");
 const answerBCount = document.querySelector("#answer-b-count");
+const judgeProviderSelect = document.querySelector("#judge-provider");
+const judgeModelInput = document.querySelector("#judge-model");
+const judgeModelSuggestions = document.querySelector("#judge-model-suggestions");
+const judgeEndpointInput = document.querySelector("#judge-endpoint");
+const judgeApiKeyInput = document.querySelector("#judge-api-key");
+const toggleJudgeKeyButton = document.querySelector("#toggle-judge-key");
+const judgeTemperatureInput = document.querySelector("#judge-temperature");
+const judgeTemperatureValue = document.querySelector("#judge-temperature-value");
+const judgeReasoningSelect = document.querySelector("#judge-reasoning");
+const judgeReasoningNote = document.querySelector("#judge-reasoning-note");
+const judgeWebSearchInput = document.querySelector("#judge-web-search");
+const judgeWebSearchNote = document.querySelector("#judge-web-search-note");
 
 let latestFinal = "";
+let canAutoCompare = false;
+let serverCanAutoCompare = false;
 const templateStorageKey = "model-review-template-v1";
 const templateVersionsStorageKey = "model-review-template-versions-v1";
 const activeTemplateVersionStorageKey = "model-review-active-template-version-v1";
+const aiSettingsStorageKey = "model-review-ai-settings-v1";
+const aiKeyStorageKey = "model-review-ai-key-v1";
+const judgeProviders = {
+  deepseek: {
+    label: "DeepSeek",
+    endpoint: "https://api.deepseek.com/v1",
+    models: ["deepseek-chat", "deepseek-reasoner"]
+  },
+  openai: {
+    label: "OpenAI",
+    endpoint: "https://api.openai.com/v1",
+    models: [
+      "gpt-6-astra",
+      "gpt-5.6",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-5.6-luna",
+      "gpt-5.5"
+    ]
+  },
+  anthropic: {
+    label: "Anthropic Claude",
+    endpoint: "https://api.anthropic.com/v1",
+    models: [
+      "claude-opus-5",
+      "claude-opus-4-8",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-sonnet-5",
+      "claude-sonnet-4-6"
+    ]
+  },
+  xiaomi: {
+    label: "小米 MiMo",
+    endpoint: "https://api.xiaomimimo.com/v1",
+    models: ["mimo-v2-flash"]
+  },
+  custom: { label: "自定义接口", endpoint: "", models: [] }
+};
 const defaultPromptTemplate = `
 你是严格但公平的模型回答评测员。请比较 A 模型回答和 B 模型回答，判断哪个更好。
 
@@ -271,43 +324,177 @@ function validateInputs() {
   return { query, answerA, answerB };
 }
 
+function currentJudgeConfig() {
+  const apiKey = judgeApiKeyInput.value.trim();
+  const model = judgeModelInput.value.trim();
+  const endpoint = judgeEndpointInput.value.trim();
+  if (!model || !endpoint) return null;
+  return {
+    provider: judgeProviderSelect.value,
+    model,
+    endpoint,
+    apiKey,
+    temperature: judgeTemperatureInput.value,
+    reasoningEffort: judgeReasoningSelect.value,
+    webSearch: judgeWebSearchInput.checked
+  };
+}
+
+function saveAiSettings() {
+  localStorage.setItem(
+    aiSettingsStorageKey,
+    JSON.stringify({
+      provider: judgeProviderSelect.value,
+      model: judgeModelInput.value,
+      endpoint: judgeEndpointInput.value,
+      temperature: judgeTemperatureInput.value,
+      reasoningEffort: judgeReasoningSelect.value,
+      webSearch: judgeWebSearchInput.checked
+    })
+  );
+  sessionStorage.setItem(aiKeyStorageKey, judgeApiKeyInput.value);
+}
+
+function updateJudgeReasoningOptions(preferredValue = judgeReasoningSelect.value || "auto") {
+  const provider = judgeProviderSelect.value;
+  const model = judgeModelInput.value.trim();
+  const labels = {
+    auto: "自动（模型默认）",
+    none: "None · 不推理",
+    minimal: "Minimal · 极少",
+    low: "Low · 较少",
+    medium: "Medium · 均衡",
+    high: "High · 深入",
+    xhigh: "XHigh · 很深入"
+  };
+  let values = ["auto"];
+  if (provider === "openai" && /^(gpt-[56]|o[134])/i.test(model)) {
+    values = ["auto", "none", "minimal", "low", "medium", "high", "xhigh"];
+  }
+  if (provider === "openai" && /^gpt-6/i.test(model)) {
+    values = ["auto", "low", "medium", "high", "xhigh"];
+  }
+  judgeReasoningSelect.innerHTML = values
+    .map((value) => `<option value="${value}">${labels[value]}</option>`)
+    .join("");
+  judgeReasoningSelect.value = values.includes(preferredValue) ? preferredValue : "auto";
+
+  const usesReasoning = provider === "openai" && /^(gpt-[56]|o[134])/i.test(model);
+  const omitsTemperature = usesReasoning || provider === "anthropic";
+  judgeTemperatureInput.disabled = omitsTemperature;
+  judgeReasoningNote.textContent = usesReasoning
+    ? "OpenAI 推理模型使用思考强度；温度不会发送。"
+    : provider === "anthropic"
+      ? "Claude Opus 使用模型默认推理；温度不会发送。"
+    : "当前接口按温度控制稳定性，不发送思考强度。";
+}
+
+function updateWebSearchAvailability() {
+  const provider = judgeProviderSelect.value;
+  const supported = provider === "openai" || provider === "anthropic";
+  judgeWebSearchInput.disabled = !supported;
+  if (!supported) judgeWebSearchInput.checked = false;
+  judgeWebSearchNote.textContent = supported
+    ? provider === "openai"
+      ? "使用 OpenAI Responses API 的原生 Web Search。"
+      : "使用 Anthropic Messages API 的原生 Web Search。"
+    : "当前服务商暂不支持原生联网搜索。";
+}
+
+function updateJudgeProvider(overwrite = true, preferredReasoning = "auto") {
+  const config = judgeProviders[judgeProviderSelect.value] || judgeProviders.custom;
+  if (overwrite) {
+    judgeEndpointInput.value = config.endpoint;
+    judgeModelInput.value = config.models[0] || "";
+  }
+  judgeModelSuggestions.innerHTML = config.models
+    .map((model) => `<option value="${escapeHtml(model)}"></option>`)
+    .join("");
+  updateJudgeReasoningOptions(preferredReasoning);
+  updateWebSearchAvailability();
+  saveAiSettings();
+}
+
+function loadAiSettings() {
+  let settings = {};
+  try {
+    settings = JSON.parse(localStorage.getItem(aiSettingsStorageKey) || "{}");
+  } catch {}
+
+  if (judgeProviders[settings.provider]) judgeProviderSelect.value = settings.provider;
+  updateJudgeProvider(false, settings.reasoningEffort);
+  if (settings.model) judgeModelInput.value = settings.model;
+  if (settings.endpoint) judgeEndpointInput.value = settings.endpoint;
+  if (settings.temperature != null) judgeTemperatureInput.value = settings.temperature;
+  judgeWebSearchInput.checked = Boolean(settings.webSearch);
+  judgeApiKeyInput.value = sessionStorage.getItem(aiKeyStorageKey) || "";
+  judgeTemperatureValue.value = judgeTemperatureInput.value;
+  updateJudgeReasoningOptions(settings.reasoningEffort);
+  updateWebSearchAvailability();
+  saveAiSettings();
+}
+
+function refreshAutoCompareState() {
+  const hasSessionKey = Boolean(judgeApiKeyInput.value.trim());
+  const sessionConfigReady = Boolean(
+    hasSessionKey && judgeModelInput.value.trim() && judgeEndpointInput.value.trim()
+  );
+  canAutoCompare = sessionConfigReady || (!hasSessionKey && serverCanAutoCompare);
+  compareButton.disabled = !canAutoCompare;
+  compareButton.textContent = canAutoCompare ? "自动评测" : "自动评测（需配置 API）";
+
+  if (sessionConfigReady) {
+    const provider = judgeProviders[judgeProviderSelect.value] || judgeProviders.custom;
+    setStatus(`已就绪 · ${provider.label} / ${judgeModelInput.value.trim()}`, "ok");
+  } else if (hasSessionKey) {
+    setStatus("还需要填写评测模型和 API 地址", "warn");
+  } else if (serverCanAutoCompare) {
+    setStatus("已就绪 · 将使用服务器 API 配置", "ok");
+  } else {
+    setStatus("填写 API Key 后即可自动评测；也可以继续手工复制 Prompt", "warn");
+  }
+}
+
 function setLoading(isLoading) {
-  compareButton.disabled = isLoading;
+  compareButton.disabled = isLoading || !canAutoCompare;
   promptButton.disabled = isLoading;
   queryInput.disabled = isLoading;
   answerAInput.disabled = isLoading;
   answerBInput.disabled = isLoading;
-  compareButton.textContent = isLoading ? "评测中" : "自动评测";
+  judgeProviderSelect.disabled = isLoading;
+  judgeModelInput.disabled = isLoading;
+  judgeEndpointInput.disabled = isLoading;
+  judgeApiKeyInput.disabled = isLoading;
+  judgeTemperatureInput.disabled =
+    isLoading ||
+    judgeProviderSelect.value === "anthropic" ||
+    (judgeProviderSelect.value === "openai" && /^(gpt-[56]|o[134])/i.test(judgeModelInput.value.trim()));
+  judgeReasoningSelect.disabled = isLoading;
+  judgeWebSearchInput.disabled =
+    isLoading || !["openai", "anthropic"].includes(judgeProviderSelect.value);
+  compareButton.textContent = isLoading
+    ? "评测中"
+    : canAutoCompare
+      ? "自动评测"
+      : "自动评测（需配置 API）";
 }
 
 async function loadConfig() {
   try {
     const response = await fetch("/api/config");
     const config = await response.json();
-
-    if (config.demoMode) {
-      setStatus("", "");
-      return;
-    }
-
-    if (!config.hasOpenAIKey && !config.hasAnthropicKey && !config.hasGeminiKey) {
-      setStatus("", "");
-      return;
-    }
-
-    if (config.hasOpenAIKey) {
-      setStatus("", "");
-      return;
-    }
-
-    if (config.hasGeminiKey) {
-      setStatus("", "");
-      return;
-    }
-
-    setStatus("", "");
+    if (!response.ok) throw new Error(config.error || "配置读取失败");
+    serverCanAutoCompare =
+      Boolean(config.demoMode) ||
+      Boolean(config.hasOpenAIKey) ||
+      Boolean(config.hasAnthropicKey) ||
+      Boolean(config.hasDeepSeekKey) ||
+      Boolean(config.hasGeminiKey) ||
+      Boolean(config.hasXiaomiKey);
+    refreshAutoCompareState();
   } catch {
-    setStatus("", "");
+    serverCanAutoCompare = false;
+    refreshAutoCompareState();
   }
 }
 
@@ -348,7 +535,7 @@ promptButton.addEventListener("click", async () => {
   copyFinal.disabled = false;
   promptButton.textContent = "已复制";
   window.setTimeout(() => {
-    promptButton.textContent = "生成评审 Prompt";
+    promptButton.textContent = "复制 Prompt 手动评测";
   }, 1200);
   setStatus("", "");
 });
@@ -358,6 +545,11 @@ form.addEventListener("submit", async (event) => {
 
   const payload = validateInputs();
   if (!payload) return;
+  const judgeConfig = currentJudgeConfig();
+  if (judgeApiKeyInput.value.trim() && (!judgeConfig?.model || !judgeConfig?.endpoint)) {
+    setStatus("请填写评测模型和 API 地址", "error");
+    return;
+  }
 
   updatePrompt();
   setLoading(true);
@@ -371,7 +563,11 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/api/compare", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...payload, template: getActiveTemplate() })
+      body: JSON.stringify({
+        ...payload,
+        template: getActiveTemplate(),
+        judgeConfig
+      })
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "评测失败");
@@ -380,7 +576,15 @@ form.addEventListener("submit", async (event) => {
     finalOutput.classList.remove("empty", "loading");
     finalOutput.innerHTML = renderMarkdown(result.final);
     copyFinal.disabled = false;
-    setStatus("评测完成", "ok");
+    const provider = result.modelConfig?.provider;
+    const model = result.modelConfig?.model;
+    const searched = result.modelConfig?.webSearch;
+    setStatus(
+      provider && model
+        ? `评测完成 · ${provider} / ${model}${searched ? " · 已联网" : ""}`
+        : "评测完成",
+      "ok"
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "评测失败";
     finalOutput.classList.remove("loading");
@@ -487,6 +691,37 @@ copyFinal.addEventListener("click", async () => {
   }, 1200);
 });
 
+judgeProviderSelect.addEventListener("change", () => {
+  updateJudgeProvider(true);
+  refreshAutoCompareState();
+});
+judgeModelInput.addEventListener("input", () => {
+  updateJudgeReasoningOptions();
+  saveAiSettings();
+  refreshAutoCompareState();
+});
+judgeEndpointInput.addEventListener("input", () => {
+  saveAiSettings();
+  refreshAutoCompareState();
+});
+judgeApiKeyInput.addEventListener("input", () => {
+  saveAiSettings();
+  refreshAutoCompareState();
+});
+judgeTemperatureInput.addEventListener("input", () => {
+  judgeTemperatureValue.value = judgeTemperatureInput.value;
+  saveAiSettings();
+});
+judgeReasoningSelect.addEventListener("change", saveAiSettings);
+judgeWebSearchInput.addEventListener("change", saveAiSettings);
+toggleJudgeKeyButton.addEventListener("click", () => {
+  const hidden = judgeApiKeyInput.type === "password";
+  judgeApiKeyInput.type = hidden ? "text" : "password";
+  toggleJudgeKeyButton.textContent = hidden ? "隐藏" : "显示";
+});
+
+loadAiSettings();
+refreshAutoCompareState();
 loadConfig();
 if (!localStorage.getItem(templateVersionsStorageKey)) {
   saveTemplateVersions([

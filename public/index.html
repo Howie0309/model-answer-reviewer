@@ -7,13 +7,23 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="模型回答评测器首页">
+        <span class="brand-mark" aria-hidden="true"><span>A</span><span>B</span></span>
+        <span class="brand-copy">
+          <strong>模型回答评测器</strong>
+          <small>Model Answer Reviewer</small>
+        </span>
+      </a>
+      <span class="method-tag">LLM-as-a-Judge</span>
+    </header>
     <main class="app-shell">
       <section class="topband">
         <div class="intro">
-          <p class="eyebrow">Model A/B Review</p>
-          <h1>模型回答评测器</h1>
+          <p class="eyebrow">Compare · Verify · Decide</p>
+          <h1>把两个回答放到<br />同一把尺子上。</h1>
           <p class="lead">
-            输入原始 query，粘贴 A 模型和 B 模型的回答，判断哪个回答更准确、更完整、更值得采用。
+            输入原始问题与候选回答，由 AI 裁判从准确性、完整性和可采纳性三个维度给出结论。
           </p>
         </div>
 
@@ -35,49 +45,125 @@
       <form id="compare-form" class="task-panel">
         <div class="section-head">
           <div>
-            <p class="section-kicker">Step 1</p>
-            <h2>输入待评测内容</h2>
+            <p class="section-kicker">01 · Review input</p>
+            <h2>评测输入</h2>
           </div>
           <span id="config-status" class="status">正在检查模型配置</span>
         </div>
 
         <div class="field-block">
           <div class="field-head">
-            <label for="query">原始 query</label>
+            <label for="query">原始 Query</label>
           </div>
           <textarea
             id="query"
             name="query"
             rows="5"
-            placeholder="请直接粘贴用户Query"
+            placeholder="粘贴用户的原始问题或任务要求…"
           ></textarea>
         </div>
 
         <div class="answer-grid">
           <section class="answer-panel">
             <div class="field-head">
-              <label for="answer-a">A 模型回答</label>
+              <label for="answer-a">候选回答 A</label>
               <span class="answer-tag">候选 A</span>
             </div>
-            <textarea id="answer-a" rows="14" placeholder="粘贴 A 模型的完整回答。"></textarea>
+            <textarea id="answer-a" rows="14" placeholder="粘贴模型 A 的完整回答…"></textarea>
           </section>
 
           <section class="answer-panel">
             <div class="field-head">
-              <label for="answer-b">B 模型回答</label>
+              <label for="answer-b">候选回答 B</label>
               <span class="answer-tag alt">候选 B</span>
             </div>
-            <textarea id="answer-b" rows="14" placeholder="粘贴 B 模型的完整回答。"></textarea>
+            <textarea id="answer-b" rows="14" placeholder="粘贴模型 B 的完整回答…"></textarea>
           </section>
         </div>
 
+        <section class="api-panel" aria-labelledby="api-panel-title">
+          <div class="api-panel-head">
+            <div>
+              <p class="section-kicker">Judge model</p>
+              <h3 id="api-panel-title">裁判配置</h3>
+            </div>
+            <span class="secure-note">API Key 仅保存在当前浏览器会话，不写入项目或服务器</span>
+          </div>
+
+          <div class="api-config-grid">
+            <div class="api-field">
+              <label for="judge-provider">服务商</label>
+              <select id="judge-provider">
+                <option value="deepseek">DeepSeek</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic Claude</option>
+                <option value="xiaomi">小米 MiMo</option>
+                <option value="custom">自定义 / OpenAI 兼容</option>
+              </select>
+            </div>
+
+            <div class="api-field">
+              <label for="judge-model">评测模型</label>
+              <input id="judge-model" list="judge-model-suggestions" value="deepseek-chat" />
+              <datalist id="judge-model-suggestions"></datalist>
+            </div>
+
+            <div class="api-field span-2">
+              <label for="judge-endpoint">API 地址</label>
+              <input id="judge-endpoint" value="https://api.deepseek.com/v1" />
+            </div>
+
+            <div class="api-field span-2">
+              <div class="field-head compact-head">
+                <label for="judge-api-key">API Key</label>
+                <span class="field-note">留空时使用部署环境中已有的 API 配置</span>
+              </div>
+              <div class="key-input">
+                <input
+                  id="judge-api-key"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="粘贴本次会话使用的 API Key"
+                />
+                <button id="toggle-judge-key" class="secondary" type="button">显示</button>
+              </div>
+            </div>
+
+            <div class="api-field span-2 web-search-setting">
+              <div class="web-search-copy">
+                <label for="judge-web-search">联网搜索</label>
+                <span id="judge-web-search-note" class="field-note">
+                  让裁判核验实时信息、事实和引用来源。
+                </span>
+              </div>
+              <label class="switch" for="judge-web-search">
+                <input id="judge-web-search" type="checkbox" />
+                <span class="switch-track" aria-hidden="true"></span>
+                <span class="sr-only">启用联网搜索</span>
+              </label>
+            </div>
+
+            <div class="api-field">
+              <label for="judge-temperature">温度 <output id="judge-temperature-value">0</output></label>
+              <input id="judge-temperature" type="range" min="0" max="1" step="0.1" value="0" />
+              <span class="field-note">自动评测建议设为 0，结果更稳定。</span>
+            </div>
+
+            <div class="api-field">
+              <label for="judge-reasoning">思考强度</label>
+              <select id="judge-reasoning"></select>
+              <span id="judge-reasoning-note" class="field-note">跟随模型默认设置。</span>
+            </div>
+          </div>
+        </section>
+
         <div class="action-bar">
           <div class="button-row">
-            <button id="prompt-button" type="button">
-              生成评审 Prompt
-            </button>
             <button id="compare-button" class="secondary" type="submit" disabled>
-              自动评测（暂不可用）
+              自动评测（需配置 API）
+            </button>
+            <button id="prompt-button" type="button">
+              复制 Prompt 手动评测
             </button>
           </div>
         </div>
@@ -87,7 +173,7 @@
         <div class="template-panel">
           <div class="panel-heading">
             <div>
-              <span>评审 Prompt 模板</span>
+              <span>Prompt 高级设置</span>
               <p class="panel-note">支持占位符：<code>{{query}}</code>、<code>{{answerA}}</code>、<code>{{answerB}}</code></p>
             </div>
           </div>
@@ -113,7 +199,7 @@
         <div class="answers-preview-panel">
           <div class="panel-heading">
             <div>
-              <span>A / B 回答对照</span>
+              <span>A / B 回答预览</span>
               <p class="panel-note">这里会并列显示你输入的两个回答，方便对照查看。</p>
             </div>
           </div>
@@ -140,7 +226,7 @@
         <div class="final-panel">
           <div class="panel-heading">
             <div>
-              <span>评测结果</span>
+              <span>02 · 评测结果</span>
               <p class="panel-note">这里展示最终结论、准确性核查和各维度比较。</p>
             </div>
             <button id="copy-final" class="secondary" type="button" disabled>
@@ -171,6 +257,11 @@
         </div>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <span>Model Answer Reviewer</span>
+      <span>评级始终表示 A 相对 B 的整体质量，不默认更长的回答更好。</span>
+    </footer>
 
     <script src="/app.js" type="module"></script>
   </body>

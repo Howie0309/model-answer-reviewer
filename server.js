@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { callConfiguredJudge } from "./lib/evaluator.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const publicDir = join(__dirname, "public");
@@ -16,10 +17,13 @@ loadEnvFile(envPath);
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.6";
 const ANTHROPIC_MODEL =
-  process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929";
+  process.env.ANTHROPIC_MODEL || "claude-opus-5";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const XIAOMI_MODEL = process.env.XIAOMI_MODEL || "mimo-v2-flash";
+const XIAOMI_BASE_URL =
+  process.env.XIAOMI_BASE_URL || "https://api.xiaomimimo.com/v1";
 const DEMO_MODE = process.env.DEMO_MODE === "true";
 
 const mimeTypes = {
@@ -185,6 +189,14 @@ function extractOpenAIText(payload) {
     }
   }
   return parts.join("\n").trim();
+}
+
+function extractChatCompletionText(payload) {
+  return (payload.choices || [])
+    .map((choice) => choice.message?.content || choice.text || "")
+    .filter(Boolean)
+    .join("\n")
+    .trim();
 }
 
 function extractClaudeText(payload) {
@@ -385,11 +397,48 @@ async function callGemini(prompt) {
   return text;
 }
 
+async function callXiaomi(prompt) {
+  if (DEMO_MODE) return demoAnswer("Xiaomi MiMo", prompt);
+  const apiKey = envValue("XIAOMI_API_KEY");
+  if (!apiKey) {
+    throw new Error("Missing XIAOMI_API_KEY. Set it in your .env file.");
+  }
+
+  const baseUrl = XIAOMI_BASE_URL.replace(/\/+$/, "");
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      model: XIAOMI_MODEL,
+      messages: [
+        { role: "system", content: debateSystemPrompt },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.4,
+      max_tokens: 4096
+    })
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error?.message || "Xiaomi MiMo request failed.");
+  }
+
+  const text = extractChatCompletionText(payload);
+  if (!text) throw new Error("Xiaomi MiMo returned an empty response.");
+  return text;
+}
+
 function hasAnyRealProvider() {
   return Boolean(
     envValue("OPENAI_API_KEY") ||
       envValue("ANTHROPIC_API_KEY") ||
-      envValue("GEMINI_API_KEY")
+      envValue("DEEPSEEK_API_KEY") ||
+      envValue("GEMINI_API_KEY") ||
+      envValue("XIAOMI_API_KEY")
   );
 }
 
@@ -398,7 +447,7 @@ async function callModel(preferredProvider, prompt) {
 
   if (!hasAnyRealProvider()) {
     throw new Error(
-      "Missing API key. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY in your .env file."
+      "Missing API key. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or XIAOMI_API_KEY in your .env file."
     );
   }
 
@@ -411,6 +460,7 @@ async function callModel(preferredProvider, prompt) {
   }
 
   if (envValue("GEMINI_API_KEY")) return callGemini(prompt);
+  if (envValue("XIAOMI_API_KEY")) return callXiaomi(prompt);
   if (envValue("OPENAI_API_KEY")) return callOpenAI(prompt);
   if (envValue("ANTHROPIC_API_KEY")) return callClaude(prompt);
 
@@ -424,6 +474,7 @@ function roleLabel(preferredProvider) {
     return "Claude";
   }
   if (envValue("GEMINI_API_KEY")) return `${preferredProvider} by Gemini`;
+  if (envValue("XIAOMI_API_KEY")) return `${preferredProvider} by Xiaomi MiMo`;
   if (envValue("OPENAI_API_KEY")) return `${preferredProvider} by GPT`;
   if (envValue("ANTHROPIC_API_KEY")) return `${preferredProvider} by Claude`;
   return preferredProvider;
@@ -472,6 +523,7 @@ async function runDebate(task) {
       openai: OPENAI_MODEL,
       anthropic: ANTHROPIC_MODEL,
       gemini: GEMINI_MODEL,
+      xiaomi: XIAOMI_MODEL,
       demoMode: DEMO_MODE
     },
     rounds: [
@@ -545,8 +597,77 @@ function buildComparePrompt({ query, answerA, answerB, template }) {
   return fillPromptTemplate(chosenTemplate, { query, answerA, answerB });
 }
 
-async function runComparison({ query, answerA, answerB, template }) {
+function normalizeJudgeConfig(value) {
+  if (!value || typeof value !== "object") return null;
+  const supportedProviders = new Set([
+    "openai",
+    "anthropic",
+    "deepseek",
+    "xiaomi",
+    "custom"
+  ]);
+  const supportedEfforts = new Set([
+    "auto",
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh"
+  ]);
+  const provider = supportedProviders.has(value.provider) ? value.provider : "custom";
+  const browserApiKey = String(value.apiKey || "").trim();
+  const serverApiKeys = {
+    openai: envValue("OPENAI_API_KEY"),
+    anthropic: envValue("ANTHROPIC_API_KEY"),
+    deepseek: envValue("DEEPSEEK_API_KEY"),
+    xiaomi: envValue("XIAOMI_API_KEY"),
+    custom: ""
+  };
+  const apiKey = browserApiKey || serverApiKeys[provider];
+  if (!apiKey) return null;
+  const temperature = Math.min(2, Math.max(0, Number(value.temperature) || 0));
+  const reasoningEffort = supportedEfforts.has(value.reasoningEffort)
+    ? value.reasoningEffort
+    : "auto";
+
+  return {
+    apiKey,
+    provider,
+    endpoint: String(value.endpoint || "").trim(),
+    model: String(value.model || "").trim(),
+    temperature,
+    reasoningEffort,
+    webSearch:
+      Boolean(value.webSearch) && ["openai", "anthropic"].includes(provider),
+    keySource: browserApiKey ? "browser-session" : "server-environment"
+  };
+}
+
+async function runComparison({ query, answerA, answerB, template, judgeConfig }) {
   const prompt = buildComparePrompt({ query, answerA, answerB, template });
+  const sessionConfig = normalizeJudgeConfig(judgeConfig);
+  if (sessionConfig) {
+    const result = await callConfiguredJudge({
+      ...sessionConfig,
+      systemPrompt: debateSystemPrompt,
+      userPrompt: prompt
+    });
+
+    return {
+      modelConfig: {
+        provider: sessionConfig.provider,
+        model: sessionConfig.model,
+        source: sessionConfig.keySource,
+        webSearch: sessionConfig.webSearch,
+        demoMode: false
+      },
+      prompt,
+      final: result.text,
+      usage: result.usage
+    };
+  }
+
   const final = await callModel("GPT", prompt);
 
   return {
@@ -554,8 +675,10 @@ async function runComparison({ query, answerA, answerB, template }) {
       openai: OPENAI_MODEL,
       anthropic: ANTHROPIC_MODEL,
       gemini: GEMINI_MODEL,
+      xiaomi: XIAOMI_MODEL,
       demoMode: DEMO_MODE
     },
+    usage: null,
     prompt,
     final
   };
@@ -594,6 +717,7 @@ ${task}
       openai: OPENAI_MODEL,
       anthropic: ANTHROPIC_MODEL,
       gemini: GEMINI_MODEL,
+      xiaomi: XIAOMI_MODEL,
       demoMode: DEMO_MODE
     },
     rounds: [
@@ -629,13 +753,21 @@ ${model} 演示回复
 async function handleApi(req, res) {
   if (req.url === "/api/config" && req.method === "GET") {
     return jsonResponse(res, 200, {
+      capabilities: {
+        browserSessionApi: true,
+        serverConfiguredApi: DEMO_MODE || hasAnyRealProvider()
+      },
       openaiModel: OPENAI_MODEL,
       anthropicModel: ANTHROPIC_MODEL,
       geminiModel: GEMINI_MODEL,
+      xiaomiModel: XIAOMI_MODEL,
+      xiaomiBaseUrl: XIAOMI_BASE_URL,
       demoMode: DEMO_MODE,
       hasOpenAIKey: Boolean(envValue("OPENAI_API_KEY")),
       hasAnthropicKey: Boolean(envValue("ANTHROPIC_API_KEY")),
-      hasGeminiKey: Boolean(envValue("GEMINI_API_KEY"))
+      hasDeepSeekKey: Boolean(envValue("DEEPSEEK_API_KEY")),
+      hasGeminiKey: Boolean(envValue("GEMINI_API_KEY")),
+      hasXiaomiKey: Boolean(envValue("XIAOMI_API_KEY"))
     });
   }
 
@@ -665,6 +797,7 @@ async function handleApi(req, res) {
       const answerA = String(body.answerA || "").trim();
       const answerB = String(body.answerB || "").trim();
       const template = String(body.template || "");
+      const judgeConfig = body.judgeConfig;
 
       if (query.length < 4 || answerA.length < 4 || answerB.length < 4) {
         return jsonResponse(res, 400, {
@@ -672,7 +805,13 @@ async function handleApi(req, res) {
         });
       }
 
-      const result = await runComparison({ query, answerA, answerB, template });
+      const result = await runComparison({
+        query,
+        answerA,
+        answerB,
+        template,
+        judgeConfig
+      });
       return jsonResponse(res, 200, result);
     } catch (error) {
       return jsonResponse(res, 500, {
