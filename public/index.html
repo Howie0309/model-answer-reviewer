@@ -18,27 +18,6 @@
       <span class="method-tag">LLM-as-a-Judge</span>
     </header>
     <main class="app-shell">
-      <section class="topband">
-        <div class="intro">
-          <p class="eyebrow">Compare · Verify · Decide</p>
-          <h1>把两个回答放到<br />同一把尺子上。</h1>
-        </div>
-
-        <aside class="legend-panel" aria-label="评测标准">
-          <p class="legend-title">最终评级</p>
-          <div class="legend-grid">
-            <span class="legend-pill strong">很好</span>
-            <span class="legend-pill positive">略好</span>
-            <span class="legend-pill neutral">持平</span>
-            <span class="legend-pill caution">略差</span>
-            <span class="legend-pill weak">很差</span>
-          </div>
-          <p class="legend-note">
-            评级表示 A 相对 B 的整体质量，不默认更长的回答更好。
-          </p>
-        </aside>
-      </section>
-
       <form id="compare-form" class="task-panel">
         <div class="section-head">
           <div>
@@ -143,14 +122,20 @@
             <div class="api-field">
               <label for="judge-temperature">温度 <output id="judge-temperature-value">0</output></label>
               <input id="judge-temperature" type="range" min="0" max="1" step="0.1" value="0" />
-              <span class="field-note">自动评测建议设为 0，结果更稳定。</span>
             </div>
 
             <div class="api-field">
               <label for="judge-reasoning">思考强度</label>
               <select id="judge-reasoning"></select>
-              <span id="judge-reasoning-note" class="field-note">跟随模型默认设置。</span>
             </div>
+
+            <details class="api-field span-2 parameter-help">
+              <summary>参数说明</summary>
+              <div>
+                <p>温度设为 0 时评测更稳定；部分推理模型会自动忽略温度。</p>
+                <p id="judge-reasoning-note">跟随模型默认设置。</p>
+              </div>
+            </details>
           </div>
         </section>
 

@@ -2208,3 +2208,53 @@ input[type="range"] { accent-color: #5572db; }
 .markdown-output code { color: #415dbd; background: #e7ebfa; }
 .rounds-panel .prompt-output { color: #444b47; background: #eceeeb; }
 .site-footer { border-top-color: #e1e4df; background: #f5f6f3; }
+
+/* Review feedback refinements */
+.app-shell {
+  padding-top: 24px;
+}
+
+.task-panel > .answer-grid {
+  border-top: 1px solid #dfe2de;
+}
+
+.answer-panel,
+.answer-panel + .answer-panel {
+  border-top: 0;
+}
+
+.answer-panel + .answer-panel {
+  border-left-color: #dfe2de;
+}
+
+.api-panel {
+  align-self: start;
+  height: max-content;
+}
+
+.parameter-help {
+  margin-top: 1px;
+  padding-top: 10px;
+  border-top: 1px solid #d9ddd8;
+}
+
+.parameter-help summary {
+  color: #69716d;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+}
+
+.parameter-help div {
+  display: grid;
+  gap: 5px;
+  padding-top: 8px;
+}
+
+.parameter-help p {
+  margin: 0;
+  color: #7a827e;
+  font-size: 9px;
+  line-height: 1.5;
+}
