@@ -105,9 +105,18 @@
             </div>
 
             <div class="api-field">
-              <label for="judge-model">评测模型</label>
-              <input id="judge-model" list="judge-model-suggestions" value="deepseek-v4-pro" />
-              <datalist id="judge-model-suggestions"></datalist>
+              <label id="judge-model-label" for="judge-model">评测模型</label>
+              <select id="judge-model">
+                <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+                <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+                <option value="deepseek-v4-flash-vision-exp">deepseek-v4-flash-vision-exp</option>
+              </select>
+              <input
+                id="judge-model-custom"
+                aria-label="自定义评测模型 ID"
+                placeholder="输入模型 ID"
+                hidden
+              />
             </div>
 
             <div class="api-field span-2">

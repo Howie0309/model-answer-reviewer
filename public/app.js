@@ -18,8 +18,9 @@ const deleteTemplateVersionButton = document.querySelector("#delete-template-ver
 const answerACount = document.querySelector("#answer-a-count");
 const answerBCount = document.querySelector("#answer-b-count");
 const judgeProviderSelect = document.querySelector("#judge-provider");
+const judgeModelLabel = document.querySelector("#judge-model-label");
 const judgeModelInput = document.querySelector("#judge-model");
-const judgeModelSuggestions = document.querySelector("#judge-model-suggestions");
+const judgeCustomModelInput = document.querySelector("#judge-model-custom");
 const judgeEndpointInput = document.querySelector("#judge-endpoint");
 const judgeApiKeyInput = document.querySelector("#judge-api-key");
 const toggleJudgeKeyButton = document.querySelector("#toggle-judge-key");
@@ -80,8 +81,33 @@ const judgeProviders = {
 const legacyJudgeModels = {
   "deepseek-chat": "deepseek-v4-flash",
   "deepseek-reasoner": "deepseek-v4-flash",
+  "gpt-5.6": "gpt-5.6-sol",
+  "claude-opus-4-7": "claude-opus-5",
+  "claude-opus-4-6": "claude-opus-5",
+  "claude-sonnet-4-6": "claude-sonnet-5",
   "mimo-v2-flash": "mimo-v2.5"
 };
+
+function getJudgeModel() {
+  const field = judgeProviderSelect.value === "custom"
+    ? judgeCustomModelInput
+    : judgeModelInput;
+  return field.value.trim();
+}
+
+function setJudgeModel(model) {
+  const normalizedModel = legacyJudgeModels[model] || model;
+  if (judgeProviderSelect.value === "custom") {
+    judgeCustomModelInput.value = normalizedModel;
+    return;
+  }
+
+  const models = judgeProviders[judgeProviderSelect.value]?.models || [];
+  judgeModelInput.value = models.includes(normalizedModel)
+    ? normalizedModel
+    : models[0] || "";
+}
+
 const defaultPromptTemplate = `
 你是严格但公平的模型回答评测员。请比较 A 模型回答和 B 模型回答，判断哪个更好。
 
@@ -331,7 +357,7 @@ function validateInputs() {
 
 function currentJudgeConfig() {
   const apiKey = judgeApiKeyInput.value.trim();
-  const model = judgeModelInput.value.trim();
+  const model = getJudgeModel();
   const endpoint = judgeEndpointInput.value.trim();
   if (!model || !endpoint) return null;
   return {
@@ -350,7 +376,7 @@ function saveAiSettings() {
     aiSettingsStorageKey,
     JSON.stringify({
       provider: judgeProviderSelect.value,
-      model: judgeModelInput.value,
+      model: getJudgeModel(),
       endpoint: judgeEndpointInput.value,
       temperature: judgeTemperatureInput.value,
       reasoningEffort: judgeReasoningSelect.value,
@@ -362,7 +388,7 @@ function saveAiSettings() {
 
 function updateJudgeReasoningOptions(preferredValue = judgeReasoningSelect.value || "auto") {
   const provider = judgeProviderSelect.value;
-  const model = judgeModelInput.value.trim();
+  const model = getJudgeModel();
   const labels = {
     auto: "自动（模型默认）",
     none: "None · 不推理",
@@ -408,13 +434,18 @@ function updateWebSearchAvailability() {
 
 function updateJudgeProvider(overwrite = true, preferredReasoning = "auto") {
   const config = judgeProviders[judgeProviderSelect.value] || judgeProviders.custom;
+  const isCustom = judgeProviderSelect.value === "custom";
+  judgeModelLabel.htmlFor = isCustom ? "judge-model-custom" : "judge-model";
+  judgeModelInput.hidden = isCustom;
+  judgeCustomModelInput.hidden = !isCustom;
+  judgeModelInput.innerHTML = config.models
+    .map((model) => `<option value="${escapeHtml(model)}">${escapeHtml(model)}</option>`)
+    .join("");
   if (overwrite) {
     judgeEndpointInput.value = config.endpoint;
-    judgeModelInput.value = config.models[0] || "";
+    if (isCustom) judgeCustomModelInput.value = "";
+    else judgeModelInput.value = config.models[0] || "";
   }
-  judgeModelSuggestions.innerHTML = config.models
-    .map((model) => `<option value="${escapeHtml(model)}"></option>`)
-    .join("");
   updateJudgeReasoningOptions(preferredReasoning);
   updateWebSearchAvailability();
   saveAiSettings();
@@ -428,9 +459,7 @@ function loadAiSettings() {
 
   if (judgeProviders[settings.provider]) judgeProviderSelect.value = settings.provider;
   updateJudgeProvider(false, settings.reasoningEffort);
-  if (settings.model) {
-    judgeModelInput.value = legacyJudgeModels[settings.model] || settings.model;
-  }
+  if (settings.model) setJudgeModel(settings.model);
   if (settings.endpoint) {
     judgeEndpointInput.value =
       settings.provider === "deepseek" && settings.endpoint === "https://api.deepseek.com/v1"
@@ -449,7 +478,7 @@ function loadAiSettings() {
 function refreshAutoCompareState() {
   const hasSessionKey = Boolean(judgeApiKeyInput.value.trim());
   const sessionConfigReady = Boolean(
-    hasSessionKey && judgeModelInput.value.trim() && judgeEndpointInput.value.trim()
+    hasSessionKey && getJudgeModel() && judgeEndpointInput.value.trim()
   );
   canAutoCompare = sessionConfigReady || (!hasSessionKey && serverCanAutoCompare);
   compareButton.disabled = !canAutoCompare;
@@ -457,7 +486,7 @@ function refreshAutoCompareState() {
 
   if (sessionConfigReady) {
     const provider = judgeProviders[judgeProviderSelect.value] || judgeProviders.custom;
-    setStatus(`已就绪 · ${provider.label} / ${judgeModelInput.value.trim()}`, "ok");
+    setStatus(`已就绪 · ${provider.label} / ${getJudgeModel()}`, "ok");
   } else if (hasSessionKey) {
     setStatus("还需要填写评测模型和 API 地址", "warn");
   } else if (serverCanAutoCompare) {
@@ -475,12 +504,13 @@ function setLoading(isLoading) {
   answerBInput.disabled = isLoading;
   judgeProviderSelect.disabled = isLoading;
   judgeModelInput.disabled = isLoading;
+  judgeCustomModelInput.disabled = isLoading;
   judgeEndpointInput.disabled = isLoading;
   judgeApiKeyInput.disabled = isLoading;
   judgeTemperatureInput.disabled =
     isLoading ||
     judgeProviderSelect.value === "anthropic" ||
-    (judgeProviderSelect.value === "openai" && /^(gpt-[56]|o[134])/i.test(judgeModelInput.value.trim()));
+    (judgeProviderSelect.value === "openai" && /^(gpt-[56]|o[134])/i.test(getJudgeModel()));
   judgeReasoningSelect.disabled = isLoading;
   judgeWebSearchInput.disabled =
     isLoading || !["openai", "anthropic"].includes(judgeProviderSelect.value);
@@ -698,11 +728,14 @@ judgeProviderSelect.addEventListener("change", () => {
   updateJudgeProvider(true);
   refreshAutoCompareState();
 });
-judgeModelInput.addEventListener("input", () => {
+function handleJudgeModelChange() {
   updateJudgeReasoningOptions();
   saveAiSettings();
   refreshAutoCompareState();
-});
+}
+
+judgeModelInput.addEventListener("change", handleJudgeModelChange);
+judgeCustomModelInput.addEventListener("input", handleJudgeModelChange);
 judgeEndpointInput.addEventListener("input", () => {
   saveAiSettings();
   refreshAutoCompareState();
