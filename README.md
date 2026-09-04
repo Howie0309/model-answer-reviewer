@@ -21,10 +21,10 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
 DEEPSEEK_API_KEY=your_deepseek_api_key
 GEMINI_API_KEY=your_gemini_api_key
 XIAOMI_API_KEY=your_xiaomi_api_key
-OPENAI_MODEL=gpt-5.6
+OPENAI_MODEL=gpt-5.6-sol
 ANTHROPIC_MODEL=claude-opus-5
 GEMINI_MODEL=gemini-2.5-flash
-XIAOMI_MODEL=mimo-v2-flash
+XIAOMI_MODEL=mimo-v2.5-pro
 XIAOMI_BASE_URL=https://api.xiaomimimo.com/v1
 ```
 
@@ -42,7 +42,7 @@ DEMO_MODE=false
 
 ```bash
 XIAOMI_API_KEY=your_xiaomi_api_key
-XIAOMI_MODEL=mimo-v2-flash
+XIAOMI_MODEL=mimo-v2.5-pro
 XIAOMI_BASE_URL=https://api.xiaomimimo.com/v1
 DEMO_MODE=false
 ```
@@ -67,10 +67,10 @@ http://localhost:3000
 
 页面配置支持：
 
-- DeepSeek：`https://api.deepseek.com/v1`
-- OpenAI：`https://api.openai.com/v1`，支持 GPT-6 Astra、GPT-5.6 系列，通过 Responses API 调用
-- Anthropic Claude：`https://api.anthropic.com/v1`，支持 Claude Opus 5、Opus 4.8 等，通过 Messages API 调用
-- 小米 MiMo：`https://api.xiaomimimo.com/v1`
+- DeepSeek：`https://api.deepseek.com`，包含 `deepseek-v4-pro`、`deepseek-v4-flash`、`deepseek-v4-flash-vision-exp`
+- OpenAI：`https://api.openai.com/v1`，包含 GPT-6 Astra、GPT-5.6 Sol / Terra / Luna、GPT-5.5，通过 Responses API 调用
+- Anthropic Claude：`https://api.anthropic.com/v1`，包含 Claude Fable 5.1、Opus 5、Sonnet 5、Opus 4.8、Haiku 4.5，通过 Messages API 调用
+- 小米 MiMo：`https://api.xiaomimimo.com/v1`，包含 `mimo-v2.5-pro`、`mimo-v2.5`
 - 自定义 OpenAI-compatible 接口
 
 选择 OpenAI 或 Anthropic 后可以开启“联网搜索”。程序会按模型添加其原生 Web Search 工具；联网搜索可能产生额外费用，并且需要对应账号或组织已开通该能力。
@@ -98,7 +98,7 @@ DEMO_MODE=false
 ```bash
 OPENAI_API_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
-OPENAI_MODEL=gpt-5.6
+OPENAI_MODEL=gpt-5.6-sol
 ANTHROPIC_MODEL=claude-opus-5
 ```
 

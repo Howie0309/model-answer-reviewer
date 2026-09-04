@@ -17,11 +17,11 @@ loadEnvFile(envPath);
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.6";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.6-sol";
 const ANTHROPIC_MODEL =
   process.env.ANTHROPIC_MODEL || "claude-opus-5";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-const XIAOMI_MODEL = process.env.XIAOMI_MODEL || "mimo-v2-flash";
+const XIAOMI_MODEL = process.env.XIAOMI_MODEL || "mimo-v2.5-pro";
 const XIAOMI_BASE_URL =
   process.env.XIAOMI_BASE_URL || "https://api.xiaomimimo.com/v1";
 const DEMO_MODE = process.env.DEMO_MODE === "true";

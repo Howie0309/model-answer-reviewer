@@ -41,15 +41,18 @@ const aiKeyStorageKey = "model-review-ai-key-v1";
 const judgeProviders = {
   deepseek: {
     label: "DeepSeek",
-    endpoint: "https://api.deepseek.com/v1",
-    models: ["deepseek-chat", "deepseek-reasoner"]
+    endpoint: "https://api.deepseek.com",
+    models: [
+      "deepseek-v4-pro",
+      "deepseek-v4-flash",
+      "deepseek-v4-flash-vision-exp"
+    ]
   },
   openai: {
     label: "OpenAI",
     endpoint: "https://api.openai.com/v1",
     models: [
       "gpt-6-astra",
-      "gpt-5.6",
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-luna",
@@ -60,20 +63,24 @@ const judgeProviders = {
     label: "Anthropic Claude",
     endpoint: "https://api.anthropic.com/v1",
     models: [
+      "claude-fable-5-1",
       "claude-opus-5",
-      "claude-opus-4-8",
-      "claude-opus-4-7",
-      "claude-opus-4-6",
       "claude-sonnet-5",
-      "claude-sonnet-4-6"
+      "claude-opus-4-8",
+      "claude-haiku-4-5-20251001"
     ]
   },
   xiaomi: {
     label: "小米 MiMo",
     endpoint: "https://api.xiaomimimo.com/v1",
-    models: ["mimo-v2-flash"]
+    models: ["mimo-v2.5-pro", "mimo-v2.5"]
   },
   custom: { label: "自定义接口", endpoint: "", models: [] }
+};
+const legacyJudgeModels = {
+  "deepseek-chat": "deepseek-v4-flash",
+  "deepseek-reasoner": "deepseek-v4-flash",
+  "mimo-v2-flash": "mimo-v2.5"
 };
 const defaultPromptTemplate = `
 你是严格但公平的模型回答评测员。请比较 A 模型回答和 B 模型回答，判断哪个更好。
@@ -383,7 +390,7 @@ function updateJudgeReasoningOptions(preferredValue = judgeReasoningSelect.value
   judgeReasoningNote.textContent = usesReasoning
     ? "OpenAI 推理模型使用思考强度；温度不会发送。"
     : provider === "anthropic"
-      ? "Claude Opus 使用模型默认推理；温度不会发送。"
+      ? "Claude 使用模型默认推理；温度不会发送。"
     : "当前接口按温度控制稳定性，不发送思考强度。";
 }
 
@@ -421,8 +428,15 @@ function loadAiSettings() {
 
   if (judgeProviders[settings.provider]) judgeProviderSelect.value = settings.provider;
   updateJudgeProvider(false, settings.reasoningEffort);
-  if (settings.model) judgeModelInput.value = settings.model;
-  if (settings.endpoint) judgeEndpointInput.value = settings.endpoint;
+  if (settings.model) {
+    judgeModelInput.value = legacyJudgeModels[settings.model] || settings.model;
+  }
+  if (settings.endpoint) {
+    judgeEndpointInput.value =
+      settings.provider === "deepseek" && settings.endpoint === "https://api.deepseek.com/v1"
+        ? "https://api.deepseek.com"
+        : settings.endpoint;
+  }
   if (settings.temperature != null) judgeTemperatureInput.value = settings.temperature;
   judgeWebSearchInput.checked = Boolean(settings.webSearch);
   judgeApiKeyInput.value = sessionStorage.getItem(aiKeyStorageKey) || "";

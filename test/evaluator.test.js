@@ -90,7 +90,7 @@ test("uses Chat Completions for compatible providers", async () => {
     {
       apiKey: "test-key",
       endpoint: "https://api.xiaomimimo.com/v1",
-      model: "mimo-v2-flash",
+      model: "mimo-v2.5-pro",
       provider: "xiaomi",
       systemPrompt: "你是评测员",
       userPrompt: "比较 A 和 B",
