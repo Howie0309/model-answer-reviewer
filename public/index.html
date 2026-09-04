@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>模型回答评测器</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/workspace.css" />
   </head>
   <body>
     <header class="site-header">
@@ -18,52 +18,78 @@
       <span class="method-tag">LLM-as-a-Judge</span>
     </header>
     <main class="app-shell">
-      <form id="compare-form" class="task-panel">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">01 · Review input</p>
-            <h2>评测输入</h2>
-          </div>
-          <span id="config-status" class="status">正在检查模型配置</span>
-        </div>
-
-        <div class="field-block">
-          <div class="field-head">
-            <label for="query">原始 Query</label>
-          </div>
-          <textarea
-            id="query"
-            name="query"
-            rows="5"
-            placeholder="粘贴用户的原始问题或任务要求…"
-          ></textarea>
-        </div>
-
-        <div class="answer-grid">
-          <section class="answer-panel">
-            <div class="field-head">
-              <label for="answer-a">候选回答 A</label>
-              <span class="answer-tag">候选 A</span>
-            </div>
-            <textarea id="answer-a" rows="14" placeholder="粘贴模型 A 的完整回答…"></textarea>
-          </section>
-
-          <section class="answer-panel">
-            <div class="field-head">
-              <label for="answer-b">候选回答 B</label>
-              <span class="answer-tag alt">候选 B</span>
-            </div>
-            <textarea id="answer-b" rows="14" placeholder="粘贴模型 B 的完整回答…"></textarea>
-          </section>
-        </div>
-
-        <section class="api-panel" aria-labelledby="api-panel-title">
-          <div class="api-panel-head">
+      <form id="compare-form" class="review-workspace">
+        <section class="compose-card" aria-labelledby="review-input-title">
+          <div class="section-head">
             <div>
-              <p class="section-kicker">Judge model</p>
-              <h3 id="api-panel-title">裁判配置</h3>
+              <p class="section-kicker">01 · Review input</p>
+              <h1 id="review-input-title">评测内容</h1>
             </div>
-            <span class="secure-note">API Key 仅保存在当前浏览器会话，不写入项目或服务器</span>
+            <span class="input-hint">依次填写问题与两个候选回答</span>
+          </div>
+
+          <div class="field-block query-field">
+            <div class="field-head">
+              <label for="query">原始 Query</label>
+              <span class="field-note">问题、指令或任务要求</span>
+            </div>
+            <textarea
+              id="query"
+              name="query"
+              rows="4"
+              placeholder="粘贴用户的原始问题或任务要求…"
+            ></textarea>
+          </div>
+
+          <div class="answer-grid">
+            <section class="answer-panel">
+              <div class="field-head">
+                <div class="answer-label">
+                  <span class="answer-index">A</span>
+                  <label for="answer-a">候选回答</label>
+                </div>
+                <span id="answer-a-count" class="character-count">0 字</span>
+              </div>
+              <textarea id="answer-a" rows="12" placeholder="粘贴模型 A 的完整回答…"></textarea>
+            </section>
+
+            <section class="answer-panel">
+              <div class="field-head">
+                <div class="answer-label">
+                  <span class="answer-index answer-index-b">B</span>
+                  <label for="answer-b">候选回答</label>
+                </div>
+                <span id="answer-b-count" class="character-count">0 字</span>
+              </div>
+              <textarea id="answer-b" rows="12" placeholder="粘贴模型 B 的完整回答…"></textarea>
+            </section>
+          </div>
+        </section>
+
+        <aside class="judge-console" aria-labelledby="api-panel-title">
+          <div class="console-head">
+            <div>
+              <p class="section-kicker">Judge console</p>
+              <h2 id="api-panel-title">裁判控制台</h2>
+            </div>
+            <span class="console-indicator" aria-hidden="true"></span>
+          </div>
+
+          <div class="action-zone">
+            <button id="compare-button" class="primary-action" type="submit" disabled>
+              自动评测（需配置 API）
+            </button>
+            <button id="prompt-button" class="secondary-action" type="button">
+              复制 Prompt 手动评测
+            </button>
+            <span id="config-status" class="status">正在检查模型配置</span>
+          </div>
+
+          <div class="console-divider"></div>
+
+          <div class="config-heading">
+            <strong>模型配置</strong>
+            <span>选择用于比较 A / B 的裁判模型</span>
           </div>
 
           <div class="api-config-grid">
@@ -92,7 +118,7 @@
             <div class="api-field span-2">
               <div class="field-head compact-head">
                 <label for="judge-api-key">API Key</label>
-                <span class="field-note">留空时使用部署环境中已有的 API 配置</span>
+                <span class="field-note">仅保存在当前浏览器会话</span>
               </div>
               <div class="key-input">
                 <input
@@ -145,28 +171,19 @@
               <select id="judge-reasoning"></select>
             </div>
           </div>
-        </section>
-
-        <div class="action-bar">
-          <div class="button-row">
-            <button id="compare-button" class="secondary" type="submit" disabled>
-              自动评测（需配置 API）
-            </button>
-            <button id="prompt-button" type="button">
-              复制 Prompt 手动评测
-            </button>
-          </div>
-        </div>
+          <p class="privacy-note">API Key 不写入项目或服务器；留空时使用部署环境中的配置。</p>
+        </aside>
       </form>
 
-      <section class="comparison-stage">
-        <div class="template-panel">
-          <div class="panel-heading">
-            <div>
-              <span>Prompt 高级设置</span>
-              <p class="panel-note">支持占位符：<code>{{query}}</code>、<code>{{answerA}}</code>、<code>{{answerB}}</code></p>
-            </div>
-          </div>
+      <details class="advanced-panel">
+        <summary>
+          <span>
+            <strong>Prompt 高级设置</strong>
+            <small>模板版本、占位符与自定义评测规则</small>
+          </span>
+          <span class="summary-action">展开设置</span>
+        </summary>
+        <div class="advanced-content">
           <div class="template-toolbar">
             <div class="template-version-picker">
               <label for="template-version">模板版本</label>
@@ -184,67 +201,44 @@
             class="template-output"
             placeholder="在这里编辑评审 Prompt 模板。"
           ></textarea>
+          <p class="template-help">支持占位符：<code>{{query}}</code>、<code>{{answerA}}</code>、<code>{{answerB}}</code></p>
+        </div>
+      </details>
+
+      <section class="result-section" aria-live="polite">
+        <div class="result-head">
+          <div>
+            <p class="section-kicker">02 · Review result</p>
+            <h2>评测结果</h2>
+          </div>
+          <button id="copy-final" class="secondary" type="button" disabled>复制结果</button>
         </div>
 
-        <div class="answers-preview-panel">
-          <div class="panel-heading">
-            <div>
-              <span>A / B 回答预览</span>
-              <p class="panel-note">这里会并列显示你输入的两个回答，方便对照查看。</p>
-            </div>
-          </div>
-          <div class="preview-grid">
-            <article class="preview-card">
-              <div class="preview-head">
-                <span>A 模型</span>
-                <span id="answer-a-count" class="preview-meta">0 字</span>
-              </div>
-              <div id="answer-a-preview" class="preview-body empty">A 回答会显示在这里。</div>
-            </article>
-            <article class="preview-card">
-              <div class="preview-head">
-                <span>B 模型</span>
-                <span id="answer-b-count" class="preview-meta">0 字</span>
-              </div>
-              <div id="answer-b-preview" class="preview-body empty">B 回答会显示在这里。</div>
-            </article>
-          </div>
-        </div>
-      </section>
+        <article id="final-output" class="markdown-output empty">
+          评测完成后，哪个回答更好会出现在这里。
+        </article>
 
-      <section class="result-grid" aria-live="polite">
-        <div class="final-panel">
-          <div class="panel-heading">
-            <div>
-              <span>02 · 评测结果</span>
-              <p class="panel-note">这里展示最终结论、准确性核查和各维度比较。</p>
+        <details class="prompt-result">
+          <summary>
+            <span>
+              <strong>查看完整评审 Prompt</strong>
+              <small>用于检查或复制到其他模型</small>
+            </span>
+            <span class="summary-action">展开</span>
+          </summary>
+          <div class="prompt-result-content">
+            <div class="prompt-result-head">
+              <span>完整 Prompt</span>
+              <button id="copy-prompt" class="secondary" type="button" disabled>复制 Prompt</button>
             </div>
-            <button id="copy-final" class="secondary" type="button" disabled>
-              复制结果
-            </button>
+            <textarea
+              id="judge-prompt"
+              class="prompt-output"
+              readonly
+              placeholder="填写评测内容后，这里会生成完整评审 Prompt。"
+            ></textarea>
           </div>
-          <article id="final-output" class="markdown-output empty">
-            评测完成后，哪个回答更好会出现在这里。
-          </article>
-        </div>
-
-        <div class="rounds-panel">
-          <div class="panel-heading">
-            <div>
-              <span>评审 Prompt</span>
-              <p class="panel-note">复制后可直接发给网页端模型做人工评测。</p>
-            </div>
-            <button id="copy-prompt" class="secondary" type="button" disabled>
-              复制 Prompt
-            </button>
-          </div>
-          <textarea
-            id="judge-prompt"
-            class="prompt-output"
-            readonly
-            placeholder="点击“生成评审 Prompt”后，可以复制到 ChatGPT 或 Gemini 网页端进行评审。"
-          ></textarea>
-        </div>
+        </details>
       </section>
     </main>
 

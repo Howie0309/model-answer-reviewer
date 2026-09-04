@@ -15,8 +15,6 @@ const saveTemplateAsButton = document.querySelector("#save-template-as");
 const renameTemplateVersionButton = document.querySelector("#rename-template-version");
 const saveTemplateCurrentButton = document.querySelector("#save-template-current");
 const deleteTemplateVersionButton = document.querySelector("#delete-template-version");
-const answerAPreview = document.querySelector("#answer-a-preview");
-const answerBPreview = document.querySelector("#answer-b-preview");
 const answerACount = document.querySelector("#answer-a-count");
 const answerBCount = document.querySelector("#answer-b-count");
 const judgeProviderSelect = document.querySelector("#judge-provider");
@@ -507,15 +505,6 @@ function updatePrompt() {
 function updatePreview() {
   const textA = answerAInput.value.trim();
   const textB = answerBInput.value.trim();
-
-  answerAPreview.innerHTML = textA
-    ? renderMarkdown(textA)
-    : '<p class="preview-placeholder">A 回答会显示在这里。</p>';
-  answerBPreview.innerHTML = textB
-    ? renderMarkdown(textB)
-    : '<p class="preview-placeholder">B 回答会显示在这里。</p>';
-  answerAPreview.classList.toggle("empty", !textA);
-  answerBPreview.classList.toggle("empty", !textB);
   answerACount.textContent = `${textA.length} 字`;
   answerBCount.textContent = `${textB.length} 字`;
 }
