@@ -69,8 +69,12 @@ select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
 .help-tip:focus-visible {
-  outline: 3px solid rgba(70, 101, 214, 0.18);
-  outline-offset: 2px;
+  outline: 2px solid rgba(70, 101, 214, 0.1);
+  outline-offset: 1px;
+}
+
+textarea:focus-visible {
+  outline: 0;
 }
 
 button:disabled,
@@ -235,8 +239,8 @@ p {
 
 .field-block:focus-within,
 .answer-panel:focus-within {
-  border-color: #aeb9df;
-  box-shadow: 0 0 0 3px rgba(70, 101, 214, 0.08);
+  border-color: #bfc7c1;
+  box-shadow: 0 0 0 2px rgba(70, 101, 214, 0.035);
 }
 
 .query-field {
